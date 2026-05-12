@@ -3,6 +3,7 @@ import { startRun, transitionCard, type RunType } from "../orchestration";
 import { assistedDispatch, buildDispatchSnapshot, manualDispatch, type DispatchConfig } from "../scheduler";
 import { generatePrPacket, readPacketContent } from "../pr-packet";
 import { resolveWorkflowConfig } from "../workflow";
+import { buildRuntimeSnapshot } from "../observability";
 import type { ApiEnvelope, BoardSnapshot } from "../../shared/contracts";
 
 type ApiStore = ReturnType<typeof openStore>;
@@ -52,6 +53,12 @@ export function createAtelierApiFetch(context: ApiContext) {
       if (request.method === "GET" && url.pathname.match(/^\/api\/boards\/[^/]+\/dispatch$/)) {
         const boardId = decodeURIComponent(url.pathname.split("/")[3]);
         return ok(dispatchSnapshot(context.store, boardId, dispatchConfigFromQuery(url.searchParams)));
+      }
+
+      if (request.method === "GET" && url.pathname.match(/^\/api\/boards\/[^/]+\/runtime$/)) {
+        const boardId = decodeURIComponent(url.pathname.split("/")[3]);
+        const board = mustFind(context.store.getBoard(boardId), `Board not found: ${boardId}`);
+        return ok(buildRuntimeSnapshot(context.store, { board }));
       }
 
       if (request.method === "POST" && url.pathname.match(/^\/api\/boards\/[^/]+\/dispatch$/)) {

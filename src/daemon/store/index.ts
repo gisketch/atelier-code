@@ -104,6 +104,16 @@ export type RetryEntryRecord = {
   updatedAt: string;
 };
 
+export type EventRecord = {
+  id: string;
+  boardId: string | null;
+  cardId: string | null;
+  runId: string | null;
+  type: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type CreateBoardInput = {
   id?: string;
   name: string;
@@ -551,6 +561,32 @@ class AtelierStore {
     return id;
   }
 
+  listEvents(input: { boardId?: string; cardId?: string; runId?: string; limit?: number } = {}): EventRecord[] {
+    const limit = input.limit ?? 100;
+    if (input.runId) {
+      return this.db
+        .query<EventRow, [string, number]>("SELECT * FROM event_history WHERE run_id = ? ORDER BY created_at DESC, id DESC LIMIT ?")
+        .all(input.runId, limit)
+        .map(mapEvent);
+    }
+    if (input.cardId) {
+      return this.db
+        .query<EventRow, [string, number]>("SELECT * FROM event_history WHERE card_id = ? ORDER BY created_at DESC, id DESC LIMIT ?")
+        .all(input.cardId, limit)
+        .map(mapEvent);
+    }
+    if (input.boardId) {
+      return this.db
+        .query<EventRow, [string, number]>("SELECT * FROM event_history WHERE board_id = ? ORDER BY created_at DESC, id DESC LIMIT ?")
+        .all(input.boardId, limit)
+        .map(mapEvent);
+    }
+    return this.db
+      .query<EventRow, [number]>("SELECT * FROM event_history ORDER BY created_at DESC, id DESC LIMIT ?")
+      .all(limit)
+      .map(mapEvent);
+  }
+
   rawForTests() {
     return this.db;
   }
@@ -691,6 +727,16 @@ type RetryEntryRow = {
   updated_at: string;
 };
 
+type EventRow = {
+  id: string;
+  board_id: string | null;
+  card_id: string | null;
+  run_id: string | null;
+  type: string;
+  payload_json: string;
+  created_at: string;
+};
+
 function mapBoard(row: BoardRow): BoardRecord {
   return {
     id: row.id,
@@ -773,5 +819,17 @@ function mapRetryEntry(row: RetryEntryRow): RetryEntryRecord {
     error: row.error,
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function mapEvent(row: EventRow): EventRecord {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    cardId: row.card_id,
+    runId: row.run_id,
+    type: row.type,
+    payload: JSON.parse(row.payload_json) as Record<string, unknown>,
+    createdAt: row.created_at
   };
 }
