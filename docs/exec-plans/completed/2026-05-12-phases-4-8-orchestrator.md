@@ -26,8 +26,8 @@ Complete phases 4 through 8 from `GOAL.md` against `SPEC.md` and `UI_REF.md`.
 - [x] Complete and commit Phase 5.
 - [x] Complete and commit Phase 6.
 - [x] Complete and commit Phase 7.
-- [ ] Complete and commit Phase 8.
-- [ ] Run final full validation.
+- [x] Complete and commit Phase 8.
+- [x] Run final full validation.
 
 # Validation
 
@@ -44,3 +44,4 @@ Complete phases 4 through 8 from `GOAL.md` against `SPEC.md` and `UI_REF.md`.
 - 2026-05-12: Phase 5 added local API envelopes, board/card/run/artifact endpoints, snapshot output, and a Tauri daemon endpoint command. Passed full validation gate before commit.
 - 2026-05-12: Phase 6 replaced static UI data with daemon snapshot loading, card detail, run history, artifact list, dispatch actions, plan-gate state, and settings/status surfaces. Passed full validation gate before commit.
 - 2026-05-12: Phase 7 added the runner protocol, compact prompt construction, fake transport, event emission, workspace launch guard, and token delta handling. Passed full validation gate before commit.
+- 2026-05-12: Phase 8 added Sonata context loading and safe plan, verification, and PR packet artifact writers. Passed full validation gate before commit.
