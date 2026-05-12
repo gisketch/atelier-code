@@ -24,7 +24,7 @@ Complete phases 4 through 8 from `GOAL.md` against `SPEC.md` and `UI_REF.md`.
 - [x] Read full `UI_REF.md`.
 - [x] Complete and commit Phase 4.
 - [x] Complete and commit Phase 5.
-- [ ] Complete and commit Phase 6.
+- [x] Complete and commit Phase 6.
 - [ ] Complete and commit Phase 7.
 - [ ] Complete and commit Phase 8.
 - [ ] Run final full validation.
@@ -42,3 +42,4 @@ Complete phases 4 through 8 from `GOAL.md` against `SPEC.md` and `UI_REF.md`.
 - 2026-05-12: Started combined Phase 4-8 execution after Phase 3 commit `622abdd`.
 - 2026-05-12: Phase 4 added store-backed orchestration transitions, eligibility, retries, and startup reconciliation. Passed full validation gate before commit.
 - 2026-05-12: Phase 5 added local API envelopes, board/card/run/artifact endpoints, snapshot output, and a Tauri daemon endpoint command. Passed full validation gate before commit.
+- 2026-05-12: Phase 6 replaced static UI data with daemon snapshot loading, card detail, run history, artifact list, dispatch actions, plan-gate state, and settings/status surfaces. Passed full validation gate before commit.
