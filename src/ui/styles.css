@@ -582,7 +582,8 @@ h1 {
 
 .gate,
 .info-list,
-.settings-strip {
+.settings-strip,
+.packet-viewer {
   margin-top: 12px;
   padding: 10px;
   background: rgba(255, 255, 255, 0.025);
@@ -610,6 +611,40 @@ h1 {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+}
+
+.packet-viewer header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.packet-viewer h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.78rem;
+}
+
+.packet-viewer header span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(226, 232, 255, 0.66);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.packet-viewer pre {
+  max-height: 210px;
+  margin: 0;
+  overflow: auto;
+  color: rgba(247, 248, 255, 0.86);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .info-list h3 {

@@ -103,6 +103,7 @@ export function App() {
   const [snapshot, setSnapshot] = useState<BoardSnapshot>(fallbackSnapshot);
   const [selectedCardId, setSelectedCardId] = useState<string>(fallbackSnapshot.cards[0]?.id ?? "");
   const [apiError, setApiError] = useState<string | null>(null);
+  const [packetContent, setPacketContent] = useState<string>("");
   const pointerPosition = usePointerPosition();
 
   useEffect(() => {
@@ -143,14 +144,34 @@ export function App() {
     }
   }
 
+  async function generatePacket(card: StoreCard) {
+    try {
+      await apiPost(`/api/cards/${card.id}/pr-packet`, {});
+      await refreshStatus();
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   const daemonOnline = Boolean(health?.ok || shellStatus?.reachable);
   const selectedCard = snapshot.cards.find((card) => card.id === selectedCardId) ?? snapshot.cards[0] ?? null;
   const selectedRuns = selectedCard ? snapshot.runs.filter((run) => run.cardId === selectedCard.id) : [];
   const selectedArtifacts = selectedCard ? snapshot.artifacts.filter((artifact) => artifact.cardId === selectedCard.id) : [];
+  const selectedPacket = selectedArtifacts.find((artifact) => artifact.kind === "pr_packet") ?? null;
   const columns = useMemo(() => buildColumns(snapshot.cards), [snapshot.cards]);
   const activeRuns = snapshot.runs.filter((run) => run.status === "queued" || run.status === "running");
   const blockedCards = snapshot.cards.filter((card) => ["blocked", "failed"].includes(card.stateNormalized));
   const prReadyCards = snapshot.cards.filter((card) => card.stateNormalized === "pr ready");
+
+  useEffect(() => {
+    if (!selectedPacket) {
+      setPacketContent("");
+      return;
+    }
+    void apiGet<{ content: string }>(`/api/artifacts/${selectedPacket.id}/content`)
+      .then((result) => setPacketContent(result.content))
+      .catch(() => setPacketContent(""));
+  }, [selectedPacket?.id]);
 
   return (
     <main className="app-shell">
@@ -224,8 +245,10 @@ export function App() {
               card={selectedCard}
               runs={selectedRuns}
               artifacts={selectedArtifacts}
+              packetContent={packetContent}
               prReadyCount={prReadyCards.length}
               onStartRun={startRun}
+              onGeneratePacket={generatePacket}
               pointerPosition={pointerPosition}
             />
           ) : (
@@ -320,14 +343,18 @@ function CardDetail({
   runs,
   artifacts,
   prReadyCount,
+  packetContent,
   onStartRun,
+  onGeneratePacket,
   pointerPosition
 }: {
   card: StoreCard;
   runs: StoreRun[];
   artifacts: StoreArtifact[];
   prReadyCount: number;
+  packetContent: string;
   onStartRun: (card: StoreCard, type: "plan" | "implement" | "verify" | "pr_packet") => void;
+  onGeneratePacket: (card: StoreCard) => void;
   pointerPosition: PointerPosition | null;
 }) {
   const { ref, style } = useProximityGlow<HTMLElement>(pointerPosition, 420);
@@ -354,7 +381,7 @@ function CardDetail({
           <TerminalSquare size={16} aria-hidden="true" />
           <span>Implement</span>
         </button>
-        <button className="icon-button" type="button" onClick={() => onStartRun(card, "pr_packet")}>
+        <button className="icon-button" type="button" onClick={() => onGeneratePacket(card)}>
           <Archive size={16} aria-hidden="true" />
           <span>Packet</span>
         </button>
@@ -390,6 +417,14 @@ function CardDetail({
           meta: `${artifact.kind} · ${artifact.status}`
         }))}
       />
+
+      <section className="packet-viewer">
+        <header>
+          <h3>PR Packet</h3>
+          <span>{card.prPacketPath ?? "not generated"}</span>
+        </header>
+        <pre>{packetContent || "No packet content loaded"}</pre>
+      </section>
 
       <section className="settings-strip">
         <span>{card.branchName ?? "No branch"}</span>

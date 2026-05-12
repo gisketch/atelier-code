@@ -1,6 +1,8 @@
 import { openStore } from "../store";
 import { startRun, transitionCard, type RunType } from "../orchestration";
 import { assistedDispatch, buildDispatchSnapshot, manualDispatch, type DispatchConfig } from "../scheduler";
+import { generatePrPacket, readPacketContent } from "../pr-packet";
+import { resolveWorkflowConfig } from "../workflow";
 import type { ApiEnvelope, BoardSnapshot } from "../../shared/contracts";
 
 type ApiStore = ReturnType<typeof openStore>;
@@ -171,6 +173,47 @@ export function createAtelierApiFetch(context: ApiContext) {
       if (request.method === "GET" && url.pathname.match(/^\/api\/cards\/[^/]+\/runs$/)) {
         const cardId = decodeURIComponent(url.pathname.split("/")[3]);
         return ok(context.store.listRuns({ cardId }));
+      }
+
+      if (request.method === "POST" && url.pathname.match(/^\/api\/cards\/[^/]+\/pr-packet$/)) {
+        const cardId = decodeURIComponent(url.pathname.split("/")[3]);
+        const card = mustFind(context.store.getCard(cardId), `Card not found: ${cardId}`);
+        const board = mustFind(context.store.getBoard(card.boardId), `Board not found: ${card.boardId}`);
+        const body = await readJson<{ runId?: string; workspacePath?: string | null }>(request);
+        const run =
+          (body.runId ? context.store.getRun(body.runId) : context.store.listRuns({ cardId }).find((candidate) => candidate.type === "pr_packet")) ??
+          context.store.createRun({
+            boardId: board.id,
+            cardId,
+            type: "pr_packet",
+            status: "running"
+          });
+        const config = resolveWorkflowConfig({ board });
+        return ok(
+          generatePrPacket({
+            store: context.store,
+            board,
+            card,
+            run,
+            config,
+            workspacePath: body.workspacePath,
+            artifacts: context.store.listArtifacts({ cardId })
+          }),
+          201
+        );
+      }
+
+      if (request.method === "GET" && url.pathname.match(/^\/api\/artifacts\/[^/]+\/content$/)) {
+        const artifactId = decodeURIComponent(url.pathname.split("/")[3]);
+        const artifact = mustFind(context.store.getArtifact(artifactId), `Artifact not found: ${artifactId}`);
+        const board = mustFind(context.store.getBoard(artifact.boardId), `Board not found: ${artifact.boardId}`);
+        return ok({
+          artifact,
+          content: readPacketContent({
+            repoPath: board.repoPath,
+            packetPath: artifact.path
+          })
+        });
       }
 
       return json({ ok: false, error: { code: "not_found", message: "Not found" } }, 404);
