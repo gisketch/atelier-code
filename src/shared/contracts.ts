@@ -128,4 +128,32 @@ export type BoardSnapshot = {
   cards: StoreCard[];
   runs: StoreRun[];
   artifacts: StoreArtifact[];
+  dispatch?: DispatchSnapshot;
+};
+
+export type DispatchMode = "manual" | "assisted";
+
+export type DispatchQueueItem = {
+  cardId: string;
+  cardIdentifier: string;
+  title: string;
+  runType: RunType;
+  priority: number | null;
+  createdAt: string;
+};
+
+export type DispatchSkip = {
+  cardId: string;
+  cardIdentifier: string;
+  title: string;
+  reason: string;
+};
+
+export type DispatchSnapshot = {
+  mode: DispatchMode;
+  maxConcurrentRuns: number;
+  activeRunCount: number;
+  availableSlots: number;
+  queued: DispatchQueueItem[];
+  skipped: DispatchSkip[];
 };

@@ -1,5 +1,6 @@
 import { openStore } from "../store";
 import { startRun, transitionCard, type RunType } from "../orchestration";
+import { assistedDispatch, buildDispatchSnapshot, manualDispatch, type DispatchConfig } from "../scheduler";
 import type { ApiEnvelope, BoardSnapshot } from "../../shared/contracts";
 
 type ApiStore = ReturnType<typeof openStore>;
@@ -44,6 +45,26 @@ export function createAtelierApiFetch(context: ApiContext) {
 
       if (request.method === "GET" && url.pathname === "/api/snapshot") {
         return ok(snapshot(context.store, url.searchParams.get("boardId") ?? undefined));
+      }
+
+      if (request.method === "GET" && url.pathname.match(/^\/api\/boards\/[^/]+\/dispatch$/)) {
+        const boardId = decodeURIComponent(url.pathname.split("/")[3]);
+        return ok(dispatchSnapshot(context.store, boardId, dispatchConfigFromQuery(url.searchParams)));
+      }
+
+      if (request.method === "POST" && url.pathname.match(/^\/api\/boards\/[^/]+\/dispatch$/)) {
+        const boardId = decodeURIComponent(url.pathname.split("/")[3]);
+        const body = await readJson<Partial<DispatchConfig>>(request);
+        return ok(
+          assistedDispatch(context.store, {
+            boardId,
+            config: {
+              mode: "assisted",
+              maxConcurrentRuns: body.maxConcurrentRuns ?? 1
+            }
+          }),
+          201
+        );
       }
 
       if (request.method === "GET" && url.pathname === "/api/boards") {
@@ -106,23 +127,28 @@ export function createAtelierApiFetch(context: ApiContext) {
 
       if (request.method === "POST" && url.pathname.match(/^\/api\/cards\/[^/]+\/runs$/)) {
         const cardId = decodeURIComponent(url.pathname.split("/")[3]);
-        const body = await readJson<{ type: RunType; bypassPlanGate?: boolean }>(request);
+        const body = await readJson<{ type: RunType; bypassPlanGate?: boolean; maxConcurrentRuns?: number }>(request);
         const card = mustFind(context.store.getCard(cardId), `Card not found: ${cardId}`);
         const board = mustFind(context.store.getBoard(card.boardId), `Board not found: ${card.boardId}`);
-        const runs = context.store.listRuns({ cardId });
-        const artifacts = context.store.listArtifacts({ cardId });
         return ok(
-          startRun(
-            context.store,
-            body.type,
-            {
-              board,
-              card,
-              runs,
-              artifacts
-            },
-            { bypassPlanGate: body.bypassPlanGate }
-          ),
+          body.bypassPlanGate
+            ? startRun(
+                context.store,
+                body.type,
+                {
+                  board,
+                  card,
+                  runs: context.store.listRuns({ cardId }),
+                  artifacts: context.store.listArtifacts({ cardId })
+                },
+                { bypassPlanGate: body.bypassPlanGate }
+              )
+            : manualDispatch(context.store, {
+                boardId: board.id,
+                cardId,
+                runType: body.type,
+                config: { mode: "manual", maxConcurrentRuns: body.maxConcurrentRuns ?? 1 }
+              }),
           201
         );
       }
@@ -166,13 +192,43 @@ export function createAtelierApiFetch(context: ApiContext) {
 export function snapshot(store: ApiStore, boardId?: string): BoardSnapshot {
   const boards = store.listBoards();
   const selectedBoard = boardId ? boards.find((board) => board.id === boardId) ?? null : boards[0] ?? null;
+  const cards = selectedBoard ? store.listCards(selectedBoard.id) : [];
+  const runs = selectedBoard ? store.listRuns({ boardId: selectedBoard.id }) : [];
+  const artifacts = selectedBoard ? store.listArtifacts({ boardId: selectedBoard.id }) : [];
 
   return {
     boards,
     selectedBoard,
-    cards: selectedBoard ? store.listCards(selectedBoard.id) : [],
-    runs: selectedBoard ? store.listRuns({ boardId: selectedBoard.id }) : [],
-    artifacts: selectedBoard ? store.listArtifacts({ boardId: selectedBoard.id }) : []
+    cards,
+    runs,
+    artifacts,
+    dispatch: selectedBoard
+      ? buildDispatchSnapshot({
+          board: selectedBoard,
+          cards,
+          runs,
+          artifacts,
+          config: { mode: "manual", maxConcurrentRuns: 1 }
+        })
+      : undefined
+  };
+}
+
+function dispatchSnapshot(store: ApiStore, boardId: string, config: DispatchConfig) {
+  const board = mustFind(store.getBoard(boardId), `Board not found: ${boardId}`);
+  return buildDispatchSnapshot({
+    board,
+    cards: store.listCards(boardId),
+    runs: store.listRuns({ boardId }),
+    artifacts: store.listArtifacts({ boardId }),
+    config
+  });
+}
+
+function dispatchConfigFromQuery(searchParams: URLSearchParams): DispatchConfig {
+  return {
+    mode: searchParams.get("mode") === "assisted" ? "assisted" : "manual",
+    maxConcurrentRuns: Number(searchParams.get("maxConcurrentRuns") ?? "1")
   };
 }
 
