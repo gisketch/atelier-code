@@ -71,10 +71,10 @@ button {
 
 .app-shell {
   position: relative;
-  width: min(1480px, calc(100vw - 48px));
+  width: min(1360px, calc(100vw - 48px));
   min-height: 100vh;
   margin: 0 auto;
-  padding: 34px 0;
+  padding: 28px 0;
 }
 
 .ambient-layer {
@@ -119,8 +119,8 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 24px;
-  padding: 18px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
   border-radius: 8px;
 }
 
@@ -220,7 +220,7 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: clamp(2rem, 5vw, 4.5rem);
+  font-size: clamp(1.7rem, 3.8vw, 3.35rem);
   line-height: 0.95;
   letter-spacing: 0;
   text-shadow: 0 12px 42px rgba(0, 0, 0, 0.55);
@@ -231,7 +231,7 @@ h1 {
   align-items: center;
   gap: 10px;
   min-height: 42px;
-  padding: 0 14px;
+  padding: 0 12px;
   color: #ffffff;
   border-radius: 8px;
   cursor: pointer;
@@ -304,15 +304,15 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .metric {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 94px;
-  padding: 16px;
+  min-height: 74px;
+  padding: 12px 14px;
   border-radius: 8px;
 }
 
@@ -325,8 +325,8 @@ h1 {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   color: #f7f8ff;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -336,7 +336,7 @@ h1 {
 
 .metric p {
   margin-bottom: 4px;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .metric strong,
@@ -347,11 +347,11 @@ h1 {
 .metric strong {
   margin-bottom: 4px;
   color: #ffffff;
-  font-size: 1.05rem;
+  font-size: 0.96rem;
 }
 
 .metric span {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .metric-ready {
@@ -381,8 +381,8 @@ h1 {
 }
 
 .column {
-  min-height: 520px;
-  padding: 12px;
+  min-height: 440px;
+  padding: 10px;
   border-radius: 8px;
 }
 
@@ -423,7 +423,7 @@ h1 {
 }
 
 .work-card {
-  padding: 14px;
+  padding: 12px;
   border-radius: 8px;
   background: var(--glass-card-bg);
   box-shadow:
@@ -489,7 +489,7 @@ h1 {
   }
 
   .column {
-    min-height: 220px;
+    min-height: 190px;
   }
 }
 
