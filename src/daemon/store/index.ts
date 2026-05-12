@@ -61,6 +61,49 @@ export type CardRecord = {
   updatedAt: string;
 };
 
+export type RunRecord = {
+  id: string;
+  boardId: string;
+  cardId: string;
+  type: "plan" | "implement" | "verify" | "pr_packet";
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+  attempt: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ArtifactRecord = {
+  id: string;
+  boardId: string;
+  cardId: string | null;
+  runId: string | null;
+  kind: "plan" | "verification" | "pr_packet" | "log" | "other";
+  path: string;
+  status: "draft" | "approved" | "superseded" | "final";
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RetryEntryRecord = {
+  id: string;
+  boardId: string;
+  cardId: string;
+  runId: string | null;
+  runType: RunRecord["type"];
+  attempt: number;
+  nextAttemptAt: string;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CreateBoardInput = {
   id?: string;
   name: string;
@@ -80,6 +123,36 @@ export type CreateCardInput = {
   state?: string;
   labels?: string[];
   position?: number;
+};
+
+export type CreateRunInput = {
+  id?: string;
+  boardId: string;
+  cardId: string;
+  type: RunRecord["type"];
+  attempt?: number;
+  status?: RunRecord["status"];
+};
+
+export type UpdateRunInput = {
+  status?: RunRecord["status"];
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  error?: string | null;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+};
+
+export type CreateArtifactInput = {
+  id?: string;
+  boardId: string;
+  cardId?: string | null;
+  runId?: string | null;
+  kind: ArtifactRecord["kind"];
+  path: string;
+  status?: ArtifactRecord["status"];
+  metadata?: Record<string, unknown>;
 };
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -245,6 +318,213 @@ class AtelierStore {
     return mustFind(this.getCard(cardId), `Card not found after move: ${cardId}`);
   }
 
+  updateCard(cardId: string, input: Partial<Pick<CardRecord, "branchName" | "planArtifactPath" | "prPacketPath">>): CardRecord {
+    const current = mustFind(this.getCard(cardId), `Card not found: ${cardId}`);
+    this.db
+      .query(
+        `UPDATE cards
+         SET branch_name = ?, plan_artifact_path = ?, pr_packet_path = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(
+        input.branchName ?? current.branchName,
+        input.planArtifactPath ?? current.planArtifactPath,
+        input.prPacketPath ?? current.prPacketPath,
+        cardId
+      );
+
+    return mustFind(this.getCard(cardId), `Card not found after update: ${cardId}`);
+  }
+
+  createRun(input: CreateRunInput): RunRecord {
+    const id = input.id ?? crypto.randomUUID();
+    this.db
+      .query(
+        `INSERT INTO runs (id, board_id, card_id, type, status, attempt)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(id, input.boardId, input.cardId, input.type, input.status ?? "queued", input.attempt ?? 1);
+
+    return mustFind(this.getRun(id), `Run not found after create: ${id}`);
+  }
+
+  getRun(id: string): RunRecord | null {
+    const row = this.db.query<RunRow, [string]>("SELECT * FROM runs WHERE id = ?").get(id);
+    return row ? mapRun(row) : null;
+  }
+
+  listRuns(input: { boardId?: string; cardId?: string } = {}): RunRecord[] {
+    if (input.cardId) {
+      return this.db
+        .query<RunRow, [string]>("SELECT * FROM runs WHERE card_id = ? ORDER BY created_at DESC, id DESC")
+        .all(input.cardId)
+        .map(mapRun);
+    }
+    if (input.boardId) {
+      return this.db
+        .query<RunRow, [string]>("SELECT * FROM runs WHERE board_id = ? ORDER BY created_at DESC, id DESC")
+        .all(input.boardId)
+        .map(mapRun);
+    }
+    return this.db.query<RunRow, []>("SELECT * FROM runs ORDER BY created_at DESC, id DESC").all().map(mapRun);
+  }
+
+  updateRun(runId: string, input: UpdateRunInput): RunRecord {
+    const current = mustFind(this.getRun(runId), `Run not found: ${runId}`);
+    this.db
+      .query(
+        `UPDATE runs
+         SET status = ?, started_at = ?, finished_at = ?, error = ?,
+             input_tokens = ?, output_tokens = ?, total_tokens = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(
+        input.status ?? current.status,
+        input.startedAt === undefined ? current.startedAt : input.startedAt,
+        input.finishedAt === undefined ? current.finishedAt : input.finishedAt,
+        input.error === undefined ? current.error : input.error,
+        input.inputTokens ?? current.inputTokens,
+        input.outputTokens ?? current.outputTokens,
+        input.totalTokens ?? current.totalTokens,
+        runId
+      );
+
+    return mustFind(this.getRun(runId), `Run not found after update: ${runId}`);
+  }
+
+  markActiveRunsInterrupted() {
+    const rows = this.db
+      .query<RunRow, []>("SELECT * FROM runs WHERE status IN ('queued', 'running') ORDER BY created_at")
+      .all();
+    const now = new Date().toISOString();
+    const update = this.db.query(
+      `UPDATE runs
+       SET status = 'interrupted', finished_at = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    );
+
+    for (const row of rows) {
+      update.run(now, "Interrupted by orchestrator restart", row.id);
+      this.appendEvent({
+        boardId: row.board_id,
+        cardId: row.card_id,
+        runId: row.id,
+        type: "run_interrupted",
+        payload: { previousStatus: row.status }
+      });
+    }
+
+    return rows.map(mapRun);
+  }
+
+  createArtifact(input: CreateArtifactInput): ArtifactRecord {
+    const id = input.id ?? crypto.randomUUID();
+    this.db
+      .query(
+        `INSERT INTO artifacts (id, board_id, card_id, run_id, kind, path, status, metadata_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        id,
+        input.boardId,
+        input.cardId ?? null,
+        input.runId ?? null,
+        input.kind,
+        input.path,
+        input.status ?? "draft",
+        JSON.stringify(input.metadata ?? {})
+      );
+
+    return mustFind(this.getArtifact(id), `Artifact not found after create: ${id}`);
+  }
+
+  getArtifact(id: string): ArtifactRecord | null {
+    const row = this.db.query<ArtifactRow, [string]>("SELECT * FROM artifacts WHERE id = ?").get(id);
+    return row ? mapArtifact(row) : null;
+  }
+
+  listArtifacts(input: { boardId?: string; cardId?: string; runId?: string } = {}): ArtifactRecord[] {
+    if (input.runId) {
+      return this.db
+        .query<ArtifactRow, [string]>("SELECT * FROM artifacts WHERE run_id = ? ORDER BY created_at DESC, id DESC")
+        .all(input.runId)
+        .map(mapArtifact);
+    }
+    if (input.cardId) {
+      return this.db
+        .query<ArtifactRow, [string]>("SELECT * FROM artifacts WHERE card_id = ? ORDER BY created_at DESC, id DESC")
+        .all(input.cardId)
+        .map(mapArtifact);
+    }
+    if (input.boardId) {
+      return this.db
+        .query<ArtifactRow, [string]>("SELECT * FROM artifacts WHERE board_id = ? ORDER BY created_at DESC, id DESC")
+        .all(input.boardId)
+        .map(mapArtifact);
+    }
+    return this.db.query<ArtifactRow, []>("SELECT * FROM artifacts ORDER BY created_at DESC, id DESC").all().map(mapArtifact);
+  }
+
+  approveArtifact(artifactId: string, metadata: Record<string, unknown>): ArtifactRecord {
+    const current = mustFind(this.getArtifact(artifactId), `Artifact not found: ${artifactId}`);
+    this.db
+      .query(
+        `UPDATE artifacts
+         SET status = 'approved', metadata_json = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(JSON.stringify({ ...current.metadata, ...metadata }), artifactId);
+
+    return mustFind(this.getArtifact(artifactId), `Artifact not found after approve: ${artifactId}`);
+  }
+
+  upsertRetryEntry(input: {
+    id?: string;
+    boardId: string;
+    cardId: string;
+    runId?: string | null;
+    runType: RunRecord["type"];
+    attempt: number;
+    nextAttemptAt: string;
+    error?: string | null;
+  }): RetryEntryRecord {
+    this.db
+      .query("DELETE FROM retry_entries WHERE card_id = ? AND run_type = ?")
+      .run(input.cardId, input.runType);
+
+    const id = input.id ?? crypto.randomUUID();
+    this.db
+      .query(
+        `INSERT INTO retry_entries (id, board_id, card_id, run_id, run_type, attempt, next_attempt_at, error)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        id,
+        input.boardId,
+        input.cardId,
+        input.runId ?? null,
+        input.runType,
+        input.attempt,
+        input.nextAttemptAt,
+        input.error ?? null
+      );
+
+    return mustFind(this.getRetryEntry(id), `Retry entry not found after create: ${id}`);
+  }
+
+  getRetryEntry(id: string): RetryEntryRecord | null {
+    const row = this.db.query<RetryEntryRow, [string]>("SELECT * FROM retry_entries WHERE id = ?").get(id);
+    return row ? mapRetryEntry(row) : null;
+  }
+
+  listRetryEntries(boardId: string): RetryEntryRecord[] {
+    return this.db
+      .query<RetryEntryRow, [string]>("SELECT * FROM retry_entries WHERE board_id = ? ORDER BY next_attempt_at")
+      .all(boardId)
+      .map(mapRetryEntry);
+  }
+
   appendEvent(input: {
     id?: string;
     boardId?: string | null;
@@ -368,6 +648,49 @@ type CardRow = {
   updated_at: string;
 };
 
+type RunRow = {
+  id: string;
+  board_id: string;
+  card_id: string;
+  type: RunRecord["type"];
+  status: RunRecord["status"];
+  attempt: number;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type ArtifactRow = {
+  id: string;
+  board_id: string;
+  card_id: string | null;
+  run_id: string | null;
+  kind: ArtifactRecord["kind"];
+  path: string;
+  status: ArtifactRecord["status"];
+  metadata_json: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type RetryEntryRow = {
+  id: string;
+  board_id: string;
+  card_id: string;
+  run_id: string | null;
+  run_type: RunRecord["type"];
+  attempt: number;
+  next_attempt_at: string;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 function mapBoard(row: BoardRow): BoardRecord {
   return {
     id: row.id,
@@ -399,6 +722,55 @@ function mapCard(row: CardRow): CardRecord {
     planArtifactPath: row.plan_artifact_path,
     prPacketPath: row.pr_packet_path,
     position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapRun(row: RunRow): RunRecord {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    cardId: row.card_id,
+    type: row.type,
+    status: row.status,
+    attempt: row.attempt,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    error: row.error,
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
+    totalTokens: row.total_tokens,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapArtifact(row: ArtifactRow): ArtifactRecord {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    cardId: row.card_id,
+    runId: row.run_id,
+    kind: row.kind,
+    path: row.path,
+    status: row.status,
+    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapRetryEntry(row: RetryEntryRow): RetryEntryRecord {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    cardId: row.card_id,
+    runId: row.run_id,
+    runType: row.run_type,
+    attempt: row.attempt,
+    nextAttemptAt: row.next_attempt_at,
+    error: row.error,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

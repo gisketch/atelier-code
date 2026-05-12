@@ -1,0 +1,43 @@
+# Goal
+
+Complete phases 4 through 8 from `GOAL.md` against `SPEC.md` and `UI_REF.md`.
+
+# Acceptance criteria
+
+- Phase 4: orchestration state machine, eligibility, run attempts, retries, and startup reconciliation work against SQLite.
+- Phase 5: daemon exposes local API operations with typed envelopes and Tauri keeps a stable daemon bridge.
+- Phase 6: React board consumes live daemon data and presents board, details, runs, logs, artifacts, settings, and state surfaces in the dark glass UI.
+- Phase 7: runner protocol builds prompts, handles fake agent execution, tracks events, and accounts tokens.
+- Phase 8: Sonata context loading and artifact writers produce plan, verification, and PR packet artifacts safely.
+- Every phase is validated and committed before the next phase starts.
+
+# Context links
+
+- `SPEC.md`
+- `UI_REF.md`
+- `GOAL.md`
+- `docs/quality.md`
+
+# Steps
+
+- [x] Read full `SPEC.md`.
+- [x] Read full `UI_REF.md`.
+- [x] Complete and commit Phase 4.
+- [ ] Complete and commit Phase 5.
+- [ ] Complete and commit Phase 6.
+- [ ] Complete and commit Phase 7.
+- [ ] Complete and commit Phase 8.
+- [ ] Run final full validation.
+
+# Validation
+
+- `bun test`
+- `bun run typecheck`
+- `bun run ui:build`
+- `bun run check`
+- `bash ./scripts/check-sonata.sh`
+
+# Progress log
+
+- 2026-05-12: Started combined Phase 4-8 execution after Phase 3 commit `622abdd`.
+- 2026-05-12: Phase 4 added store-backed orchestration transitions, eligibility, retries, and startup reconciliation. Passed full validation gate before commit.
