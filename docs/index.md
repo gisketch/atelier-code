@@ -5,6 +5,8 @@
 - [Project Brief](project-brief.md)
 - [Core Beliefs](core-beliefs.md)
 - [Quality](quality.md)
+- [Release Checklist](release-checklist.md)
+- [V1 Local Smoke Profile](smoke-v1.md)
 - [Agent Targets](agent-targets.md)
 
 ## Deeper Context

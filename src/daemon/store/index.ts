@@ -23,6 +23,7 @@ export type StoreBootstrap = {
   ready: boolean;
   appliedMigrations: string[];
   dbPath: string;
+  appDataRoot: string;
 };
 
 export type StoreOptions = {
@@ -114,6 +115,14 @@ export type EventRecord = {
   createdAt: string;
 };
 
+export type SettingRecord = {
+  scope: "app" | "board";
+  scopeId: string;
+  key: string;
+  value: unknown;
+  updatedAt: string;
+};
+
 export type CreateBoardInput = {
   id?: string;
   name: string;
@@ -166,10 +175,22 @@ export type CreateArtifactInput = {
 };
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-const defaultDbPath = join(process.cwd(), ".atelier", "atelier.sqlite");
+
+export function resolveAppDataRoot(env: Record<string, string | undefined> = Bun.env, cwd = process.cwd()) {
+  if (env.ATELIER_APP_DATA) return env.ATELIER_APP_DATA;
+  if (env.APPDATA) return join(env.APPDATA, "Atelier");
+  if (env.XDG_DATA_HOME) return join(env.XDG_DATA_HOME, "atelier");
+  if (env.HOME) return join(env.HOME, ".local", "share", "atelier");
+  return join(cwd, ".atelier");
+}
+
+export function defaultStorePath(env: Record<string, string | undefined> = Bun.env, cwd = process.cwd()) {
+  return join(resolveAppDataRoot(env, cwd), "atelier.sqlite");
+}
 
 export function initializeStore(options: StoreOptions = {}): StoreBootstrap {
-  const dbPath = options.dbPath ?? Bun.env.ATELIER_DB_PATH ?? defaultDbPath;
+  const appDataRoot = resolveAppDataRoot();
+  const dbPath = options.dbPath ?? Bun.env.ATELIER_DB_PATH ?? join(appDataRoot, "atelier.sqlite");
   const store = openStore({ dbPath });
   const appliedMigrations = store.appliedMigrations;
   store.close();
@@ -177,12 +198,13 @@ export function initializeStore(options: StoreOptions = {}): StoreBootstrap {
   return {
     ready: true,
     appliedMigrations,
-    dbPath
+    dbPath,
+    appDataRoot
   };
 }
 
 export function openStore(options: StoreOptions = {}) {
-  const dbPath = options.dbPath ?? Bun.env.ATELIER_DB_PATH ?? defaultDbPath;
+  const dbPath = options.dbPath ?? Bun.env.ATELIER_DB_PATH ?? defaultStorePath();
   const dbDir = dirname(dbPath);
 
   if (dbPath !== ":memory:" && !existsSync(dbDir)) {
@@ -587,6 +609,38 @@ class AtelierStore {
       .map(mapEvent);
   }
 
+  setSetting(input: { scope?: "app" | "board"; scopeId?: string; key: string; value: unknown }): SettingRecord {
+    const scope = input.scope ?? "app";
+    const scopeId = input.scopeId ?? "";
+    this.db
+      .query(
+        `INSERT INTO settings (scope, scope_id, key, value_json, updated_at)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(scope, scope_id, key)
+         DO UPDATE SET value_json = excluded.value_json, updated_at = CURRENT_TIMESTAMP`
+      )
+      .run(scope, scopeId, input.key, JSON.stringify(input.value));
+
+    return mustFind(this.getSetting(scope, scopeId, input.key), `Setting not found after set: ${input.key}`);
+  }
+
+  getSetting(scope: "app" | "board", scopeId: string, key: string): SettingRecord | null {
+    const row = this.db
+      .query<SettingRow, [string, string, string]>("SELECT * FROM settings WHERE scope = ? AND scope_id = ? AND key = ?")
+      .get(scope, scopeId, key);
+    return row ? mapSetting(row) : null;
+  }
+
+  listSettings(input: { scope?: "app" | "board"; scopeId?: string } = {}): SettingRecord[] {
+    if (input.scope) {
+      return this.db
+        .query<SettingRow, [string, string]>("SELECT * FROM settings WHERE scope = ? AND scope_id = ? ORDER BY key")
+        .all(input.scope, input.scopeId ?? "")
+        .map(mapSetting);
+    }
+    return this.db.query<SettingRow, []>("SELECT * FROM settings ORDER BY scope, scope_id, key").all().map(mapSetting);
+  }
+
   rawForTests() {
     return this.db;
   }
@@ -737,6 +791,14 @@ type EventRow = {
   created_at: string;
 };
 
+type SettingRow = {
+  scope: "app" | "board";
+  scope_id: string;
+  key: string;
+  value_json: string;
+  updated_at: string;
+};
+
 function mapBoard(row: BoardRow): BoardRecord {
   return {
     id: row.id,
@@ -831,5 +893,15 @@ function mapEvent(row: EventRow): EventRecord {
     type: row.type,
     payload: JSON.parse(row.payload_json) as Record<string, unknown>,
     createdAt: row.created_at
+  };
+}
+
+function mapSetting(row: SettingRow): SettingRecord {
+  return {
+    scope: row.scope,
+    scopeId: row.scope_id,
+    key: row.key,
+    value: JSON.parse(row.value_json) as unknown,
+    updatedAt: row.updated_at
   };
 }

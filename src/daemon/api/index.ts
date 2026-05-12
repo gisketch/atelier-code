@@ -80,6 +80,15 @@ export function createAtelierApiFetch(context: ApiContext) {
         return ok(context.store.listBoards());
       }
 
+      if (request.method === "GET" && url.pathname === "/api/settings") {
+        return ok(context.store.listSettings());
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/settings") {
+        const body = await readJson<{ scope?: "app" | "board"; scopeId?: string; key: string; value: unknown }>(request);
+        return ok(context.store.setSetting(body), 201);
+      }
+
       if (request.method === "POST" && url.pathname === "/api/boards") {
         const body = await readJson<{
           name: string;

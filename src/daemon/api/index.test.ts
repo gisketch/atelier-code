@@ -94,6 +94,21 @@ test("approve artifact endpoint records approval and moves card to Approved", as
   });
 });
 
+test("settings endpoints persist app and board settings", async () => {
+  const { fetch } = createFixture();
+  const setting = await request(fetch, "/api/settings", {
+    method: "POST",
+    body: {
+      key: "dispatch.mode",
+      value: "manual"
+    }
+  });
+  expect(setting).toMatchObject({ key: "dispatch.mode", value: "manual" });
+
+  const settings = await request<Array<{ key: string; value: unknown }>>(fetch, "/api/settings");
+  expect(settings).toContainEqual(expect.objectContaining({ key: "dispatch.mode", value: "manual" }));
+});
+
 function createFixture() {
   const root = mkdtempSync(join(tmpdir(), "atelier-api-"));
   tempRoots.push(root);

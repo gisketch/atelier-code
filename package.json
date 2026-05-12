@@ -10,6 +10,8 @@
     "ui:dev": "vite --host 127.0.0.1",
     "daemon:dev": "bun run src/daemon/main.ts",
     "build": "bun run ui:build && tauri build",
+    "release:check": "bun test && bun run ui:build && bun run check && bash ./scripts/check-sonata.sh && bash ./scripts/smoke-v1.sh --dry-run",
+    "smoke:v1": "bash ./scripts/smoke-v1.sh",
     "ui:build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",

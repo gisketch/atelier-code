@@ -23,8 +23,8 @@ Complete phases 9 through 12 from `GOAL.md`.
 - [x] Complete and commit Phase 9.
 - [x] Complete and commit Phase 10.
 - [x] Complete and commit Phase 11.
-- [ ] Complete and commit Phase 12.
-- [ ] Run final full validation.
+- [x] Complete and commit Phase 12.
+- [x] Run final full validation.
 
 # Validation
 
@@ -40,3 +40,4 @@ Complete phases 9 through 12 from `GOAL.md`.
 - 2026-05-12: Phase 9 added scheduler queue preview, manual and assisted dispatch, deterministic ordering, concurrency limits, skip reasons, and API snapshot visibility. Passed full validation gate before commit.
 - 2026-05-12: Phase 10 added local PR packet generation, failed-check blocking, disabled provider adapter, packet content API, and UI packet viewer. Passed full validation gate before commit.
 - 2026-05-12: Phase 11 added structured run logs, runtime snapshots, failure classification, event reads, path safety, hook safety, and high-trust approval guardrails. Passed full validation gate before commit.
+- 2026-05-12: Phase 12 added production app-data SQLite paths, settings persistence, Tauri daemon launch command, bundle resources/icons, release checklist, and V1 smoke profile. `bun run build` produced MSI and NSIS bundles after adding explicit bundle icon config.

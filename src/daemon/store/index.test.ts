@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { branchSlug, normalizeName, openStore, workspaceKey } from ".";
+import { branchSlug, defaultStorePath, normalizeName, openStore, resolveAppDataRoot, workspaceKey } from ".";
 
 const tempRoots: string[] = [];
 
@@ -151,6 +151,27 @@ test("event history is append-only", () => {
   ).toThrow("event_history is append-only");
 
   store.close();
+});
+
+test("production store path resolves to app data roots", () => {
+  expect(resolveAppDataRoot({ ATELIER_APP_DATA: "C:/atelier-data" }, "C:/repo")).toBe("C:/atelier-data");
+  expect(defaultStorePath({ ATELIER_APP_DATA: "C:/atelier-data" }, "C:/repo")).toBe("C:\\atelier-data\\atelier.sqlite");
+  expect(resolveAppDataRoot({}, "C:/repo")).toBe("C:\\repo\\.atelier");
+});
+
+test("settings persist across store restart", () => {
+  const root = mkdtempSync(join(tmpdir(), "atelier-settings-"));
+  tempRoots.push(root);
+  const dbPath = join(root, "store.sqlite");
+  const first = openStore({ dbPath });
+  first.setSetting({ key: "agent.max_concurrent_runs", value: 2 });
+  first.setSetting({ scope: "board", scopeId: "board-main", key: "dispatch.mode", value: "manual" });
+  first.close();
+
+  const second = openStore({ dbPath });
+  expect(second.getSetting("app", "", "agent.max_concurrent_runs")).toMatchObject({ value: 2 });
+  expect(second.listSettings({ scope: "board", scopeId: "board-main" })).toHaveLength(1);
+  second.close();
 });
 
 function createTempStore() {

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.gisketch.atelier",
   "build": {
-    "beforeDevCommand": "bun run ui:dev",
+    "beforeDevCommand": "bun run ui:dev -- --port 1420",
     "beforeBuildCommand": "bun run ui:build",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../dist"
@@ -25,7 +25,24 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": "all",
+    "icon": ["icons/icon.ico"],
+    "resources": [
+      "../src/daemon/main.ts",
+      "../src/daemon/api/index.ts",
+      "../src/daemon/observability/index.ts",
+      "../src/daemon/orchestration/index.ts",
+      "../src/daemon/pr-packet/index.ts",
+      "../src/daemon/runner/index.ts",
+      "../src/daemon/scheduler/index.ts",
+      "../src/daemon/sonata/index.ts",
+      "../src/daemon/store/index.ts",
+      "../src/daemon/store/migrations/**/*",
+      "../src/daemon/workflow/index.ts",
+      "../src/daemon/workspace/index.ts",
+      "../src/shared/contracts.ts",
+      "../package.json",
+      "../bun.lock"
+    ]
   }
 }
-

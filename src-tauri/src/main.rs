@@ -1,6 +1,8 @@
 use serde::Serialize;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
+use std::path::Path;
+use std::process::Command;
 use std::time::Duration;
 
 const DAEMON_ENDPOINT: &str = "http://127.0.0.1:17345";
@@ -8,6 +10,13 @@ const DAEMON_ENDPOINT: &str = "http://127.0.0.1:17345";
 #[derive(Serialize)]
 struct DaemonStatus {
     reachable: bool,
+    endpoint: &'static str,
+    detail: String,
+}
+
+#[derive(Serialize)]
+struct DaemonStartStatus {
+    started: bool,
     endpoint: &'static str,
     detail: String,
 }
@@ -66,9 +75,52 @@ fn daemon_endpoint() -> &'static str {
     DAEMON_ENDPOINT
 }
 
+#[tauri::command]
+fn daemon_start() -> DaemonStartStatus {
+    let status = daemon_status();
+    if status.reachable {
+        return DaemonStartStatus {
+            started: false,
+            endpoint: DAEMON_ENDPOINT,
+            detail: "Daemon already reachable".to_string(),
+        };
+    }
+
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_dir.parent().unwrap_or(manifest_dir);
+    let mut command = Command::new("bun");
+    command
+        .current_dir(repo_root)
+        .arg("run")
+        .arg("src/daemon/main.ts");
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+
+    match command.spawn() {
+        Ok(_) => DaemonStartStatus {
+            started: true,
+            endpoint: DAEMON_ENDPOINT,
+            detail: "Daemon launch requested".to_string(),
+        },
+        Err(error) => DaemonStartStatus {
+            started: false,
+            endpoint: DAEMON_ENDPOINT,
+            detail: error.to_string(),
+        },
+    }
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![daemon_status, daemon_endpoint])
+        .invoke_handler(tauri::generate_handler![
+            daemon_status,
+            daemon_endpoint,
+            daemon_start
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Atelier");
 }
