@@ -3,7 +3,7 @@
 ## Current Shape
 
 - Kind: existing project
-- Stack: unknown
+- Stack: Tauri v2 shell, Rust IPC, React/TypeScript/Vite UI, Bun TypeScript daemon, SQLite store.
 
 ## Default Layer Direction
 
@@ -17,9 +17,17 @@ Cross-cutting concerns should enter through explicit provider interfaces.
 
 ## Application Skeleton
 
-- [src](../../src): application or mod source placeholder.
+- [src](../../src): UI, daemon, and shared TypeScript contracts.
+- [src-tauri](../../src-tauri): Tauri v2 Rust shell and app packaging configuration.
 - [tests](../../tests): tests and fixtures placeholder.
 - [config](../../config): local config examples placeholder.
+
+## Runtime Boundaries
+
+- Tauri owns desktop lifecycle and secure IPC commands.
+- React renders the local board and calls typed UI/API boundaries.
+- Bun owns orchestration state, scheduling, daemon routes, and SQLite access.
+- SQLite persists durable board state under the configured app data path in later phases.
 
 ## Boundary Rule
 

@@ -43,20 +43,20 @@ Goal: create the project skeleton and lock the main implementation stack.
 
 Deliverables:
 
-- [ ] Tauri v2 + React + TypeScript + Vite app skeleton.
-- [ ] Bun TypeScript daemon package.
-- [ ] Shared TypeScript types package or module boundary.
-- [ ] SQLite dependency and migration location.
-- [ ] Root scripts for development, linting, tests, and packaging.
-- [ ] Basic project documentation explaining the shell, UI, daemon, and store split.
+- [x] Tauri v2 + React + TypeScript + Vite app skeleton.
+- [x] Bun TypeScript daemon package.
+- [x] Shared TypeScript types package or module boundary.
+- [x] SQLite dependency and migration location.
+- [x] Root scripts for development, linting, tests, and packaging.
+- [x] Basic project documentation explaining the shell, UI, daemon, and store split.
 
 Acceptance criteria:
 
-- [ ] `bun install` or the chosen install command succeeds.
-- [ ] React UI renders inside the Tauri shell.
-- [ ] Bun daemon can be started independently in development.
-- [ ] Tauri shell can start or connect to the daemon.
-- [ ] Repository has clear commands for app development and validation.
+- [x] `bun install` or the chosen install command succeeds.
+- [x] React UI renders inside the Tauri shell.
+- [x] Bun daemon can be started independently in development.
+- [x] Tauri shell can start or connect to the daemon.
+- [x] Repository has clear commands for app development and validation.
 
 ### Phase 1: Domain Model and SQLite Store
 
