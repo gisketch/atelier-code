@@ -61,10 +61,14 @@ fn daemon_status() -> DaemonStatus {
     }
 }
 
+#[tauri::command]
+fn daemon_endpoint() -> &'static str {
+    DAEMON_ENDPOINT
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![daemon_status])
+        .invoke_handler(tauri::generate_handler![daemon_status, daemon_endpoint])
         .run(tauri::generate_context!())
         .expect("error while running Atelier");
 }
-

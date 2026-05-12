@@ -76,3 +76,56 @@ export type StoreCard = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type StoreRun = {
+  id: string;
+  boardId: string;
+  cardId: string;
+  type: RunType;
+  status: RunStatus;
+  attempt: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StoreArtifact = {
+  id: string;
+  boardId: string;
+  cardId: string | null;
+  runId: string | null;
+  kind: ArtifactKind;
+  path: string;
+  status: "draft" | "approved" | "superseded" | "final";
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiError = {
+  code: string;
+  message: string;
+};
+
+export type ApiEnvelope<T> =
+  | {
+      ok: true;
+      data: T;
+    }
+  | {
+      ok: false;
+      error: ApiError;
+    };
+
+export type BoardSnapshot = {
+  boards: StoreBoard[];
+  selectedBoard: StoreBoard | null;
+  cards: StoreCard[];
+  runs: StoreRun[];
+  artifacts: StoreArtifact[];
+};
